@@ -1,17 +1,15 @@
 version: '3.8'
 
 volumes:
-  postgres_volume:
+  postgres_volume_local:
 
 services:
   pg:
     image: postgres:14-alpine3.17
-    environment:
-      - "POSTGRES_DB=${PG_DATABASE_NAME}"
-      - "POSTGRES_USER=${PG_USER}"
-      - "POSTGRES_PASSWORD=${PG_PASSWORD}"
+    env_file:
+      - local.env
     ports:
-      - "${PG_PORT}:5432"
+      - "54321:5432"
     volumes:
-      - postgres_volume:/var/lib/postgresql/data
+      - postgres_volume_local:/var/lib/postgresql/data
   

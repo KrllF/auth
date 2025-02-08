@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
 
 	res "github.com/KrllF/auth/cmd/db"
+	"github.com/KrllF/auth/internal/config"
 	desc "github.com/KrllF/auth/pkg/auth_v1"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -16,10 +18,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const (
-	grpcPort = 50051
-	dbDSN    = "host=localhost port=54321 dbname=auth user=auth-user password=auth-password sslmode=disable"
-)
+var configPath string
+
+func init() {
+	flag.StringVar(&configPath, "config-path", ".env", "path to config file")
+}
 
 type server struct {
 	desc.UnimplementedAuthV1Server
@@ -60,15 +63,31 @@ func (s *server) Update(ctx context.Context, req *desc.UpdateRequest) (*emptypb.
 }
 
 func main() {
+	flag.Parse()
 	ctx := context.Background()
 
-	pool, err := pgxpool.Connect(ctx, dbDSN)
+	err := config.Load(configPath)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	grpcConfig, err := config.NewGRPCConfig()
+	if err != nil {
+		log.Fatalf("failed to get grpc config: %v", err)
+	}
+
+	pgConfig, err := config.NewPGConfig()
+	if err != nil {
+		log.Fatalf("failed to get pg config: %v", err)
+	}
+
+	pool, err := pgxpool.Connect(ctx, pgConfig.DSN())
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer pool.Close()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+	lis, err := net.Listen("tcp", grpcConfig.Address())
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 		return
