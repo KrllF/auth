@@ -23,10 +23,11 @@ const (
 
 type server struct {
 	desc.UnimplementedAuthV1Server
+	pool *pgxpool.Pool
 }
 
 func (s *server) Get(ctx context.Context, req *desc.GetRequest) (*desc.GetResponse, error) {
-	resp, err := res.GetUser(ctx, req)
+	resp, err := res.GetUser(ctx, s.pool, req)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return nil, err
@@ -38,7 +39,7 @@ func (s *server) Get(ctx context.Context, req *desc.GetRequest) (*desc.GetRespon
 
 func (s *server) Create(ctx context.Context, req *desc.CreateRequest) (*desc.CreateResponse, error) {
 
-	createresp, err := res.CreateUser(ctx, req)
+	createresp, err := res.CreateUser(ctx, s.pool, req)
 	if err != nil {
 		log.Printf("Failed to create user in database: name=%v, email=%v, error=%v", req.GetName(), req.GetEmail(), err)
 		return nil, fmt.Errorf("failed to create user: %w", err)
@@ -59,6 +60,14 @@ func (s *server) Update(ctx context.Context, req *desc.UpdateRequest) (*emptypb.
 }
 
 func main() {
+	ctx := context.Background()
+
+	pool, err := pgxpool.Connect(ctx, dbDSN)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -66,18 +75,9 @@ func main() {
 	}
 	s := grpc.NewServer()
 	reflection.Register(s)
-	desc.RegisterAuthV1Server(s, &server{})
+	desc.RegisterAuthV1Server(s, &server{pool: pool})
 
 	log.Printf("server listening at %v", lis.Addr())
-
-	ctx := context.Background()
-
-	pool, err := pgxpool.Connect(ctx, dbDSN)
-	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
-	}
-	res.DB = pool
-	defer pool.Close()
 
 	if err = s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

@@ -15,9 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var DB *pgxpool.Pool
-
-func CreateUser(ctx context.Context, req *desc.CreateRequest) (*desc.CreateResponse, error) {
+func CreateUser(ctx context.Context, pool *pgxpool.Pool, req *desc.CreateRequest) (*desc.CreateResponse, error) {
 	var role_to_db string
 	if req.GetPassword() != req.GetPasswordConfirm() {
 		log.Printf("Passwords do not match for user creation: name=%v", req.GetName())
@@ -53,7 +51,7 @@ func CreateUser(ctx context.Context, req *desc.CreateRequest) (*desc.CreateRespo
 	}
 
 	var userID int
-	err = DB.QueryRow(ctx, query, args...).Scan(&userID)
+	err = pool.QueryRow(ctx, query, args...).Scan(&userID)
 	if err != nil {
 		log.Printf("failed to insert user: %v", err)
 		return nil, err
@@ -63,7 +61,7 @@ func CreateUser(ctx context.Context, req *desc.CreateRequest) (*desc.CreateRespo
 	return &desc.CreateResponse{Id: int64(userID)}, nil
 }
 
-func GetUser(ctx context.Context, req *desc.GetRequest) (*desc.GetResponse, error) {
+func GetUser(ctx context.Context, pool *pgxpool.Pool, req *desc.GetRequest) (*desc.GetResponse, error) {
 	userid := req.GetId()
 	builderSelect := sq.Select("id", "name", "email", "role", "created_at", "updated_at").
 		From("users").
@@ -77,7 +75,7 @@ func GetUser(ctx context.Context, req *desc.GetRequest) (*desc.GetResponse, erro
 		return nil, err
 	}
 
-	row := DB.QueryRow(ctx, query, args...)
+	row := pool.QueryRow(ctx, query, args...)
 
 	var id int64
 	var name, email string
