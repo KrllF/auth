@@ -26,7 +26,7 @@ type server struct {
 }
 
 func (s *server) Get(ctx context.Context, req *desc.GetRequest) (*desc.GetResponse, error) {
-	resp, err := res.GetUser(ctx, req.GetId())
+	resp, err := res.GetUser(ctx, req)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return nil, err
@@ -38,12 +38,7 @@ func (s *server) Get(ctx context.Context, req *desc.GetRequest) (*desc.GetRespon
 
 func (s *server) Create(ctx context.Context, req *desc.CreateRequest) (*desc.CreateResponse, error) {
 
-	if req.GetPassword() != req.GetPasswordConfirm() {
-		log.Printf("Passwords do not match for user creation: name=%v", req.GetName())
-		return nil, fmt.Errorf("passwords do not match")
-	}
-
-	createresp, err := res.CreateUser(ctx, req.GetName(), req.GetEmail(), req.GetPassword(), req.GetRole())
+	createresp, err := res.CreateUser(ctx, req)
 	if err != nil {
 		log.Printf("Failed to create user in database: name=%v, email=%v, error=%v", req.GetName(), req.GetEmail(), err)
 		return nil, fmt.Errorf("failed to create user: %w", err)

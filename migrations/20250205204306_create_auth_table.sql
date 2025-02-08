@@ -11,4 +11,3 @@ create table users (
 
 -- +goose Down
 drop table users; -- Удаляем таблицу users
-drop type user_role;

@@ -17,15 +17,24 @@ import (
 
 var DB *pgxpool.Pool
 
-func CreateUser(ctx context.Context, name string, email string, password string, role desc.Role) (*desc.CreateResponse, error) {
+func CreateUser(ctx context.Context, req *desc.CreateRequest) (*desc.CreateResponse, error) {
 	var role_to_db string
-	if role == desc.Role_Admin {
+	if req.GetPassword() != req.GetPasswordConfirm() {
+		log.Printf("Passwords do not match for user creation: name=%v", req.GetName())
+		return nil, fmt.Errorf("passwords do not match")
+	}
+	if req.GetPassword() != req.GetPasswordConfirm() {
+		log.Printf("Passwords do not match for user creation: name=%v", req.GetName())
+		return nil, fmt.Errorf("passwords do not match")
+	}
+
+	if req.GetRole() == desc.Role_Admin {
 		role_to_db = "Admin"
 	} else {
 		role_to_db = "User"
 	}
 
-	hashpass, err := hashPassword(password)
+	hashpass, err := hashPassword(req.GetPassword())
 	if err != nil {
 		log.Printf("bad password: %v", err)
 		return nil, err
@@ -34,7 +43,7 @@ func CreateUser(ctx context.Context, name string, email string, password string,
 	builderInsert := sq.Insert("users").
 		PlaceholderFormat(sq.Dollar).
 		Columns("name", "email", "password", "role").
-		Values(name, email, hashpass, role_to_db).
+		Values(req.GetName(), req.GetEmail(), hashpass, role_to_db).
 		Suffix("RETURNING id")
 
 	query, args, err := builderInsert.ToSql()
@@ -54,7 +63,8 @@ func CreateUser(ctx context.Context, name string, email string, password string,
 	return &desc.CreateResponse{Id: int64(userID)}, nil
 }
 
-func GetUser(ctx context.Context, userid int64) (*desc.GetResponse, error) {
+func GetUser(ctx context.Context, req *desc.GetRequest) (*desc.GetResponse, error) {
+	userid := req.GetId()
 	builderSelect := sq.Select("id", "name", "email", "role", "created_at", "updated_at").
 		From("users").
 		PlaceholderFormat(sq.Dollar).
